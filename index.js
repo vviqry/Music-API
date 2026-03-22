@@ -1,13 +1,14 @@
 require("dotenv").config(); // Load environment variables dari .env
 const express = require("express");
-const multer = require("multer");
 const path = require("path");
 const mongoose = require("mongoose");
 const cloudinary = require("cloudinary").v2;
-const { CloudinaryStorage } = require("multer-storage-cloudinary");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Middleware untuk parse JSON body
+app.use(express.json());
 
 // ============================================================
 // 1. KONEKSI KE MONGODB
@@ -20,12 +21,11 @@ mongoose
 // ============================================================
 // 2. SCHEMA MONGODB (Mongoose Model)
 // ============================================================
-// Skema untuk menyimpan data musik di database
 const musicSchema = new mongoose.Schema({
   name: { type: String, required: true },
   cloudinaryId: { type: String, required: true },
-  path: { type: String, required: true }, // URL Cloudinary
-  createdAt: { type: Date, default: Date.now }
+  path: { type: String, required: true },
+  createdAt: { type: Date, default: Date.now },
 });
 
 const Music = mongoose.model("Music", musicSchema);
@@ -40,45 +40,71 @@ cloudinary.config({
 });
 
 // ============================================================
-// 4. KONFIGURASI MULTER STORAGE (Ke Cloudinary)
+// 4. EXPRESS.STATIC — Serve frontend (index.html)
 // ============================================================
-const storage = new CloudinaryStorage({
-  cloudinary: cloudinary,
-  params: {
-    folder: "music_api", // Nama folder di Cloudinary
-    resource_type: "video", // MP3 masuk ke tipe "video" di Cloudinary
-    allowed_formats: ["mp3", "mpeg"], // Validasi tipe file
-  },
-});
-
-const upload = multer({ storage: storage });
-
-// ============================================================
-// 5. KONFIGURASI EXPRESS.STATIC
-// ============================================================
-// Tetap dipakai untuk melayani file frontend (index.html)
 app.use(express.static(path.join(__dirname, "public")));
 
 // ============================================================
-// 6. ENDPOINT: POST /upload
+// 5. ENDPOINT: GET /config
 // ============================================================
-app.post("/upload", upload.single("music"), async (req, res) => {
+// Mengirim cloud_name ke frontend agar bisa upload langsung
+// ke Cloudinary dari browser (tanpa lewat server).
+// ============================================================
+app.get("/config", (req, res) => {
+  res.json({
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME,
+  });
+});
+
+// ============================================================
+// 6. ENDPOINT: GET /sign-upload
+// ============================================================
+// Membuat signature agar frontend bisa upload langsung ke
+// Cloudinary dengan aman (signed upload). Ini menghindari
+// batas 4.5MB dari Vercel serverless functions.
+// ============================================================
+app.get("/sign-upload", (req, res) => {
+  const timestamp = Math.round(new Date().getTime() / 1000);
+
+  const signature = cloudinary.utils.api_sign_request(
+    {
+      timestamp: timestamp,
+      folder: "music_api",
+      resource_type: "video",
+    },
+    process.env.CLOUDINARY_API_SECRET
+  );
+
+  res.json({
+    signature,
+    timestamp,
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME,
+    apiKey: process.env.CLOUDINARY_API_KEY,
+  });
+});
+
+// ============================================================
+// 7. ENDPOINT: POST /save
+// ============================================================
+// Setelah frontend berhasil upload ke Cloudinary, frontend
+// mengirim metadata (nama, cloudinaryId, url) ke endpoint ini
+// untuk disimpan ke MongoDB.
+// ============================================================
+app.post("/save", async (req, res) => {
   try {
-    if (!req.file) {
+    const { name, cloudinaryId, url } = req.body;
+
+    if (!name || !cloudinaryId || !url) {
       return res.status(400).json({
         status: "error",
-        message: "Tidak ada file yang diupload. Pastikan field bernama 'music'.",
+        message: "Data tidak lengkap (name, cloudinaryId, url diperlukan).",
       });
     }
 
-    // req.file.path sekarang berisi URL langung dari Cloudinary
-    // req.file.filename berisi ID unik dari Cloudinary
-
-    // Simpan data ke MongoDB
     const newMusic = new Music({
-      name: req.file.originalname.replace(".mp3", ""), // Ambil nama file asli
-      cloudinaryId: req.file.filename,
-      path: req.file.path, // URL file MP3 di Cloudinary
+      name,
+      cloudinaryId,
+      path: url,
     });
 
     await newMusic.save();
@@ -93,24 +119,22 @@ app.post("/upload", upload.single("music"), async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error upload:", error);
-    res.status(500).json({ status: "error", message: "Gagal menyimpan file." });
+    console.error("Error save:", error);
+    res.status(500).json({ status: "error", message: "Gagal menyimpan data." });
   }
 });
 
 // ============================================================
-// 7. ENDPOINT: GET /list
+// 8. ENDPOINT: GET /list
 // ============================================================
 app.get("/list", async (req, res) => {
   try {
-    // Ambil semua data musik dari MongoDB dan urutkan berdasarkan waktu paling baru
     const musicList = await Music.find().sort({ createdAt: -1 });
 
-    // Format ulang agar sesuai dengan respons sebelumnya (menggunakan id alih-alih _id)
-    const formattedData = musicList.map(music => ({
+    const formattedData = musicList.map((music) => ({
       id: music._id,
       name: music.name,
-      path: music.path
+      path: music.path,
     }));
 
     res.status(200).json({
@@ -124,7 +148,7 @@ app.get("/list", async (req, res) => {
 });
 
 // ============================================================
-// 8. ERROR HANDLER
+// 9. ERROR HANDLER
 // ============================================================
 app.use((err, req, res, next) => {
   if (err) {
