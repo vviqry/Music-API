@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🎵 Music API - Upload & Play</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #0f0f1a;
+      color: #e0e0e0;
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+
+    .container {
+      max-width: 700px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 2rem;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #888;
+      margin-bottom: 40px;
+      font-size: 0.9rem;
+    }
+
+    /* ===== UPLOAD SECTION ===== */
+    .upload-box {
+      background: #1a1a2e;
+      border: 2px dashed #333;
+      border-radius: 16px;
+      padding: 40px;
+      text-align: center;
+      margin-bottom: 32px;
+      transition: border-color 0.3s;
+    }
+
+    .upload-box:hover {
+      border-color: #667eea;
+    }
+
+    .upload-box label {
+      display: inline-block;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      padding: 12px 32px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 1rem;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .upload-box label:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+    }
+
+    .upload-box input[type="file"] {
+      display: none;
+    }
+
+    .file-name {
+      margin-top: 16px;
+      color: #aaa;
+      font-size: 0.85rem;
+    }
+
+    .btn-upload {
+      display: none;
+      margin: 20px auto 0;
+      background: #28a745;
+      color: white;
+      border: none;
+      padding: 12px 40px;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    .btn-upload:hover { background: #218838; }
+    .btn-upload:disabled { background: #555; cursor: not-allowed; }
+
+    /* ===== STATUS MESSAGE ===== */
+    .status {
+      text-align: center;
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 24px;
+      display: none;
+      font-weight: 500;
+    }
+
+    .status.success { display: block; background: #1b3a2a; color: #4caf50; }
+    .status.error { display: block; background: #3a1b1b; color: #f44336; }
+
+    /* ===== MUSIC LIST ===== */
+    h2 {
+      font-size: 1.3rem;
+      margin-bottom: 16px;
+      color: #ccc;
+    }
+
+    .music-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .music-item {
+      background: #1a1a2e;
+      border-radius: 12px;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      transition: background 0.2s;
+    }
+
+    .music-item:hover { background: #22223a; }
+
+    .music-id {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.85rem;
+      flex-shrink: 0;
+    }
+
+    .music-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .music-name {
+      font-weight: 600;
+      font-size: 1rem;
+      margin-bottom: 8px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .music-item audio {
+      width: 100%;
+      height: 36px;
+      border-radius: 8px;
+    }
+
+    .empty-state {
+      text-align: center;
+      color: #555;
+      padding: 40px;
+      font-size: 0.95rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎵 Music API</h1>
+    <p class="subtitle">Upload file MP3 dan langsung play di browser</p>
+
+    <!-- Upload Section -->
+    <div class="upload-box">
+      <label for="fileInput">📁 Pilih File MP3</label>
+      <input type="file" id="fileInput" accept=".mp3,audio/mpeg" />
+      <p class="file-name" id="fileName">Belum ada file dipilih</p>
+      <button class="btn-upload" id="btnUpload" onclick="uploadMusic()">
+        ⬆️ Upload Musik
+      </button>
+    </div>
+
+    <!-- Status Message -->
+    <div class="status" id="statusMsg"></div>
+
+    <!-- Music List -->
+    <h2>📋 Daftar Musik</h2>
+    <div class="music-list" id="musicList">
+      <div class="empty-state">Belum ada musik yang diupload.</div>
+    </div>
+  </div>
+
+  <script>
+    // ===================================================
+    // Ketika user memilih file, tampilkan nama & tombol
+    // ===================================================
+    document.getElementById("fileInput").addEventListener("change", function () {
+      const file = this.files[0];
+      if (file) {
+        document.getElementById("fileName").textContent = file.name;
+        document.getElementById("btnUpload").style.display = "inline-block";
+      }
+    });
+
+    // ===================================================
+    // Fungsi Upload: kirim file ke POST /upload
+    // ===================================================
+    async function uploadMusic() {
+      const fileInput = document.getElementById("fileInput");
+      const btn = document.getElementById("btnUpload");
+      const statusMsg = document.getElementById("statusMsg");
+
+      if (!fileInput.files[0]) return;
+
+      // Buat FormData (sama seperti form-data di Postman)
+      const formData = new FormData();
+      formData.append("music", fileInput.files[0]);
+
+      btn.disabled = true;
+      btn.textContent = "⏳ Mengupload...";
+
+      try {
+        const response = await fetch("/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          statusMsg.className = "status success";
+          statusMsg.textContent = "✅ " + result.message;
+          // Reset form
+          fileInput.value = "";
+          document.getElementById("fileName").textContent = "Belum ada file dipilih";
+          btn.style.display = "none";
+          // Refresh daftar musik
+          loadMusicList();
+        } else {
+          statusMsg.className = "status error";
+          statusMsg.textContent = "❌ " + result.message;
+        }
+      } catch (err) {
+        statusMsg.className = "status error";
+        statusMsg.textContent = "❌ Gagal upload. Pastikan server berjalan.";
+      }
+
+      btn.disabled = false;
+      btn.textContent = "⬆️ Upload Musik";
+    }
+
+    // ===================================================
+    // Fungsi Load List: ambil data dari GET /list
+    // ===================================================
+    async function loadMusicList() {
+      const container = document.getElementById("musicList");
+
+      try {
+        const response = await fetch("/list");
+        const result = await response.json();
+
+        if (result.data.length === 0) {
+          container.innerHTML = '<div class="empty-state">Belum ada musik yang diupload.</div>';
+          return;
+        }
+
+        container.innerHTML = result.data
+          .map(
+            (music) => `
+          <div class="music-item">
+            <div class="music-id">${music.id}</div>
+            <div class="music-info">
+              <div class="music-name">${music.name}</div>
+              <audio controls preload="none">
+                <source src="${music.path}" type="audio/mpeg" />
+                Browser tidak support audio.
+              </audio>
+            </div>
+          </div>
+        `
+          )
+          .join("");
+      } catch (err) {
+        container.innerHTML = '<div class="empty-state">❌ Gagal memuat data. Pastikan server berjalan.</div>';
+      }
+    }
+
+    // Load daftar musik saat halaman pertama kali dibuka
+    loadMusicList();
+  </script>
+</body>
+</html>
