@@ -143,3 +143,6 @@ app.listen(PORT, () => {
   console.log(`🎵 Server Music API berjalan di http://localhost:${PORT}`);
   console.log(`🚀 Mode: Database (MongoDB) & Cloud Storage (Cloudinary)`);
 });
+
+// Export untuk Vercel Serverless
+module.exports = app;
