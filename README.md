@@ -1,22 +1,22 @@
-# 🎵 Music API
+# 🎵 Music API (Vercel + Cloudinary + MongoDB)
 
-A simple RESTful Music API built with **Express.js** and **Multer** for uploading, listing, and playing MP3 files directly in the browser.
+A serverless RESTful Music API built with **Express.js** for managing MP3 files. It features a modern architecture where files are uploaded directly from the browser to **Cloudinary** (bypassing server limits) and metadata is stored in **MongoDB Atlas**, perfectly optimizing it for free deployment on **Vercel**.
 
 ![Node.js](https://img.shields.io/badge/Node.js-18+-339933?logo=node.js&logoColor=white)
-![Express.js](https://img.shields.io/badge/Express.js-4.x-000000?logo=express&logoColor=white)
-![Multer](https://img.shields.io/badge/Multer-File%20Upload-FF6F00)
-![License](https://img.shields.io/badge/License-ISC-blue)
+![Express.js](https://img.shields.io/badge/Express.js-5.x-000000?logo=express&logoColor=white)
+![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47A248?logo=mongodb&logoColor=white)
+![Cloudinary](https://img.shields.io/badge/Cloudinary-Storage-3448C5?logo=cloudinary&logoColor=white)
+![Vercel](https://img.shields.io/badge/Vercel-Deployed-000000?logo=vercel&logoColor=white)
 
 ---
 
 ## ✨ Features
 
-- **Upload MP3** — Upload music files via `POST /upload` with Multer
-- **List Music** — View all uploaded music via `GET /list` as JSON
-- **Play in Browser** — Stream MP3 files directly through `express.static`
-- **Built-in Frontend** — Simple dark-themed web UI for upload & playback
-- **File Validation** — Only `.mp3` files are accepted (MIME type check)
-- **Error Handling** — Graceful error responses for invalid uploads
+- **Direct Cloud Upload** — MP3 files are uploaded directly from the browser to Cloudinary, bypassing Vercel's 4.5MB serverless body limit.
+- **Persistent Database** — Music metadata (title, Cloudinary URL) is permanently saved in MongoDB Atlas.
+- **Serverless Ready** — Fully configured to run as Vercel Serverless Functions (`vercel.json` included).
+- **Built-in Frontend** — Simple dark-themed web UI for upload (with progress bar!) & playback.
+- **Signed Uploads** — Secure uploading using Cloudinary Signature generation.
 
 ---
 
@@ -24,91 +24,110 @@ A simple RESTful Music API built with **Express.js** and **Multer** for uploadin
 
 ```
 Music-API/
-├── index.js              # Main API server
+├── index.js              # Main API server & Serverless Function
 ├── package.json          # Project metadata & dependencies
+├── vercel.json           # Vercel deployment configuration
+├── .env.example          # Example environment variables
 ├── .gitignore            # Git ignore rules
+├── DOKUMENTASI.md        # Detailed Indonesian tutorial/workflow
 ├── README.md             # This file
 └── public/
-    ├── index.html        # Frontend UI (auto-served)
-    └── music/            # Uploaded MP3 storage
+    └── index.html        # Frontend UI (auto-served)
 ```
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Getting Started (Local Development)
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) v18 or higher
+- [Node.js](https://nodejs.org/) v18+
+- [MongoDB Atlas](https://www.mongodb.com/cloud/atlas) Account (Free)
+- [Cloudinary](https://cloudinary.com/) Account (Free)
 
 ### Installation
 
-```bash
-# Clone the repository
-git clone https://github.com/vviqry/Music-API.git
-cd Music-API
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/vviqry/Music-API.git
+   cd Music-API
+   ```
 
-# Install dependencies
-npm install
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-# Create upload directory (if not exists)
-mkdir public\music
+3. Configure Environment Variables:
+   - Copy `.env.example` to `.env`
+   - Fill in your MongoDB URI and Cloudinary credentials:
+   ```env
+   PORT=3000
+   MONGODB_URI=mongodb+srv://<user>:<password>@cluster...
+   CLOUDINARY_CLOUD_NAME=your_cloud_name
+   CLOUDINARY_API_KEY=your_api_key
+   CLOUDINARY_API_SECRET=your_api_secret
+   ```
 
-# Start the server
-node index.js
-```
+4. Start the server:
+   ```bash
+   node index.js
+   ```
 
 The server will start at **http://localhost:3000**
 
 ---
 
-## 📡 API Endpoints
+## ☁️ Deployment to Vercel
 
-### `POST /upload`
+1. Push your code to GitHub.
+2. Go to [Vercel](https://vercel.com/) and import your repository.
+3. In the "Environment Variables" section, add all 4 variables (`MONGODB_URI`, `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`).
+4. Click **Deploy**.
 
-Upload an MP3 file.
-
-**Request:**
-- Content-Type: `multipart/form-data`
-- Field name: `music`
-- File type: `.mp3` only
-
-**Success Response (201):**
-```json
-{
-  "status": "success",
-  "message": "File musik berhasil diupload!",
-  "data": {
-    "id": 1,
-    "name": "Song Title",
-    "path": "http://localhost:3000/music/1711093200000-Song Title.mp3"
-  }
-}
-```
-
-**Error Response (400):**
-```json
-{
-  "status": "error",
-  "message": "Hanya file MP3 yang diperbolehkan!"
-}
-```
+> **Note:** Make sure you have whitelisted `0.0.0.0/0` in your MongoDB Atlas Network Access so Vercel can connect to the database.
 
 ---
 
+## 📡 API Endpoints
+
+### `GET /sign-upload`
+Generates a secure signature so the frontend can upload files directly to Cloudinary.
+
+**Response (200):**
+```json
+{
+  "signature": "abcdef1234567890",
+  "timestamp": 1711093200,
+  "cloudName": "your_cloud_name",
+  "apiKey": "your_api_key"
+}
+```
+
+### `POST /save`
+Saves the music metadata into MongoDB after a successful upload to Cloudinary.
+
+**Request Body (JSON):**
+```json
+{
+  "name": "Song Title",
+  "cloudinaryId": "music_api/abcd123",
+  "url": "https://res.cloudinary.com/.../SongTitle.mp3"
+}
+```
+
 ### `GET /list`
+Retrieve all uploaded music from MongoDB.
 
-Retrieve all uploaded music.
-
-**Success Response (200):**
+**Response (200):**
 ```json
 {
   "status": "success",
   "data": [
     {
-      "id": 1,
+      "id": "65f...abc",
       "name": "Song Title",
-      "path": "http://localhost:3000/music/1711093200000-Song Title.mp3"
+      "path": "https://res.cloudinary.com/.../SongTitle.mp3"
     }
   ]
 }
@@ -116,39 +135,12 @@ Retrieve all uploaded music.
 
 ---
 
-### `GET /music/:filename`
+## 🛠️ Tech Stack Architecture
 
-Access uploaded MP3 files directly. Served via `express.static`.
-
-Example: `http://localhost:3000/music/1711093200000-Song.mp3`
-
----
-
-## 🖥️ Web Interface
-
-Open **http://localhost:3000** in your browser to access the built-in frontend:
-
-- Upload MP3 files with a single click
-- View all uploaded music in a list
-- Play music directly with the HTML5 audio player
-
----
-
-## 🛠️ Tech Stack
-
-| Technology | Purpose |
-|------------|---------|
-| **Node.js** | JavaScript runtime |
-| **Express.js** | Web framework |
-| **Multer** | File upload middleware |
-
----
-
-## 📝 Notes
-
-- This project uses an **in-memory array** as a temporary database. All data is lost when the server restarts.
-- Uses **CommonJS** module system (`require`).
-- File naming includes a timestamp prefix to prevent duplicates.
+1. **Frontend (Browser):** Fetches signature from API ➔ Uploads MP3 directly to Cloudinary ➔ Sends metadata to API.
+2. **Backend (Express/Vercel):** Generates Cloudinary signatures ➔ Saves/fetches metadata from MongoDB.
+3. **Database (MongoDB):** Stores song names and Cloudinary URLs.
+4. **Storage (Cloudinary):** Stores the actual heavy `.mp3` files.
 
 ---
 
