@@ -70,7 +70,6 @@ app.get("/sign-upload", (req, res) => {
     {
       timestamp: timestamp,
       folder: "music_api",
-      resource_type: "video",
     },
     process.env.CLOUDINARY_API_SECRET
   );
